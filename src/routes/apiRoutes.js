@@ -1,6 +1,24 @@
 import express from 'express';
 import apiController from '../controllers/apiController.js';
 import verifyToken from '../middlewares/authMiddleware.js';
+import fs from 'fs';
+import multer from 'multer';
+
+// Setup Multer untuk PDF
+if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, 'uploads/'),
+  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
+});
+const upload = multer({ 
+  storage, 
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/pdf') cb(null, true);
+    else cb(new Error('Hanya file PDF yang diperbolehkan'), false);
+  }
+});
 
 const router = express.Router();
 
@@ -28,9 +46,16 @@ router.get('/jobs/company/:companyId', apiController.getJobsByCompanyId);
 router.get('/jobs/category/:categoryId', apiController.getJobsByCategoryId);
 router.get('/jobs/:id', apiController.getJobById);
 
+// === ENDPOINT DOCUMENTS (PUBLIC GET) ===
+router.get('/documents', apiController.getDocuments);
+router.get('/documents/:id', apiController.getDocumentById);
+
+
 
 // === PROTECTED ENDPOINTS ===
 router.use(verifyToken); // Terapkan middleware untuk rute di bawah ini
+
+
 
 // Authentications (Logout)
 router.delete('/authentications', apiController.deleteAuth);
@@ -69,5 +94,9 @@ router.get('/bookmarks', apiController.getAllBookmarks);
 router.post('/jobs/:jobId/bookmark', apiController.addBookmark);
 router.get('/jobs/:jobId/bookmark/:id', apiController.getBookmarkById);
 router.delete('/jobs/:jobId/bookmark', apiController.deleteBookmark);
+
+// === ENDPOINT DOCUMENTS (PROTECTED POST & DELETE) ===
+router.post('/documents', upload.single('document'), apiController.addDocument);
+router.delete('/documents/:id', apiController.deleteDocument);
 
 export default router;
